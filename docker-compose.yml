@@ -1,0 +1,48 @@
+# 3 TokenGate instances behind nginx, one shared Redis, a mock LLM upstream, Prometheus + Grafana.
+#   docker compose up --build
+#   gateway:   http://localhost:8080   (dashboard: /dashboard)    prometheus: :9090    grafana: :3001 (admin/admin)
+x-tokengate: &tokengate
+  build: .
+  restart: unless-stopped
+  depends_on: [redis, mock-upstream]
+  volumes:
+    - ./config:/app/config          # shared policy + key registry (hot-reloaded by every instance)
+  environment: &tg-env
+    PORT: "3000"
+    REDIS_URL: redis://redis:6379
+    ADMIN_TOKEN: ${ADMIN_TOKEN:-admin}
+    FAIL_MODE: open
+    UPSTREAM_OPENAI_URL: http://mock-upstream:9000
+    UPSTREAM_ANTHROPIC_URL: http://mock-upstream:9000
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-sk-mock}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-sk-ant-mock}
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+  mock-upstream:
+    build: .
+    command: ["node", "bench/mock-upstream.js"]
+    environment: { PORT: "9000" }
+  tg1: { <<: *tokengate }
+  tg2: { <<: *tokengate }
+  tg3: { <<: *tokengate }
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on: [tg1, tg2, tg3]
+    ports: ["8080:8080"]
+    volumes: ["./nginx/nginx.conf:/etc/nginx/nginx.conf:ro"]
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    ports: ["9090:9090"]
+    volumes: ["./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+  grafana:
+    image: grafana/grafana:11.3.0
+    ports: ["3001:3000"]
+    depends_on: [prometheus]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

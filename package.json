@@ -1,0 +1,29 @@
+{
+  "name": "tokengate",
+  "version": "0.1.0",
+  "description": "Rate-limiting reverse proxy for LLM APIs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "jest",
+    "bench": "node bench/compare.js",
+    "bench:e2e": "node bench/e2e-local.js"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.1",
+    "js-yaml": "^4.1.0"
+  },
+  "optionalDependencies": {
+    "js-tiktoken": "^1.0.15"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testTimeout": 20000
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
